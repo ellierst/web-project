@@ -28,11 +28,12 @@ class TaskSerializer(serializers.ModelSerializer):
         model = Task
         fields = [
             'id', 'number', 'status', 'progress', 'result', 
-            'error_message', 'created_at', 'started_at', 'completed_at'
+            'error_message', 'server_url', 'created_at', 
+            'started_at', 'completed_at'
         ]
         read_only_fields = [
             'id', 'status', 'progress', 'result', 'error_message',
-            'created_at', 'started_at', 'completed_at'
+            'server_url', 'created_at', 'started_at', 'completed_at'
         ]
     
     def validate_number(self, value):

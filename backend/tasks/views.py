@@ -2,10 +2,11 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
-from django.contrib.auth.models import User
 from .models import Task
 from .serializers import TaskSerializer, TaskCreateSerializer, UserRegistrationSerializer
 from .tasks import calculate_fibonacci_task
+from rest_framework.decorators import api_view, permission_classes
+from django.db.models import Q
 
 class UserRegistrationView(viewsets.GenericViewSet):
     permission_classes = [AllowAny]
@@ -35,11 +36,15 @@ class TaskViewSet(viewsets.ModelViewSet):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
+        server_port = request.META.get('SERVER_PORT', 'unknown')
+        server_url = f"http://127.0.0.1:{server_port}"
+        
         # Create task
         task = Task.objects.create(
             user=request.user,
             number=serializer.validated_data['number'],
-            status='pending'
+            status='pending',
+            server_url=server_url
         )
         
         # Start background task
@@ -81,3 +86,29 @@ class TaskViewSet(viewsets.ModelViewSet):
             'progress': task.progress,
             'result': task.result
         })
+    
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def server_status(request):
+    """
+    Повертає статус сервера — чи є активні задачі саме на цьому сервері
+    """
+    import os
+
+    server_port = os.getenv("SERVER_PORT", "unknown")
+    server_url = f"http://127.0.0.1:{server_port}"
+
+    # Рахуємо тільки ті задачі, що створені на цьому сервері
+    active_tasks = Task.objects.filter(
+        Q(status='pending') | Q(status='in_progress'),
+        server_url=server_url
+    ).count()
+
+    is_busy = active_tasks > 0  # наприклад, максимум 2 задачі одночасно
+
+    return Response({
+        'server_port': server_port,
+        'busy': is_busy,
+        'active_tasks': active_tasks,
+        'status': 'busy' if is_busy else 'free'
+    })

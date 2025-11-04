@@ -16,6 +16,7 @@ class Task(models.Model):
     progress = models.IntegerField(default=0)
     result = models.TextField(null=True, blank=True)
     error_message = models.TextField(null=True, blank=True)
+    server_url = models.CharField(max_length=255, null=True, blank=True)
     
     created_at = models.DateTimeField(auto_now_add=True)
     started_at = models.DateTimeField(null=True, blank=True)

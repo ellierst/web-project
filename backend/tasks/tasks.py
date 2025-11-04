@@ -2,6 +2,8 @@ from background_task import background
 from django.utils import timezone
 from .models import Task
 import time
+import sys
+import os
 
 PROGRESS_UPDATES = 100
 CANCELLATION_CHECKS = 100
@@ -11,6 +13,8 @@ def calculate_fibonacci_task(task_id, n):
     """Background task для обчислення чисел Фібоначчі"""
     try:
         task = Task.objects.get(id=task_id)
+        server_port = os.getenv("SERVER_PORT", "unknown")
+        task.server_url = f"http://127.0.0.1:{server_port}"
         task.status = 'in_progress'
         task.started_at = timezone.now()
         task.save()
@@ -40,6 +44,9 @@ def calculate_fibonacci_task(task_id, n):
                     
                     task.progress = min(progress, 99)
                     task.save(update_fields=['progress'])
+
+                    sys.stdout.write(f"\r📊 Прогрес: {task.progress}%")
+                    sys.stdout.flush()
                 
                 # Periodic cancellation check
                 if i % cancel_check_interval == 0:
@@ -71,5 +78,7 @@ def calculate_fibonacci_task(task_id, n):
             task.error_message = str(e)
             task.completed_at = timezone.now()
             task.save()
+            server_port = os.getenv("SERVER_PORT", "unknown")
+            task.server_url = f"http://127.0.0.1:{server_port}"
         except:
             pass
