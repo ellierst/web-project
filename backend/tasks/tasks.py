@@ -5,7 +5,7 @@ import time
 import sys
 import os
 
-PROGRESS_UPDATES = 100
+PROGRESS_UPDATES = 300
 CANCELLATION_CHECKS = 100
 
 @background(schedule=0)

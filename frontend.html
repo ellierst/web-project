@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔢 Fibonacci Calculator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+        
+        .header h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .auth-section, .main-section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #333;
+        }
+        
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border 0.3s;
+        }
+        
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s;
+            font-weight: bold;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            margin-left: 10px;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            padding: 8px 15px;
+            font-size: 14px;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .task-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-left: 5px solid #667eea;
+        }
+        
+        .task-card.completed {
+            border-left-color: #28a745;
+        }
+        
+        .task-card.failed {
+            border-left-color: #dc3545;
+        }
+        
+        .task-card.in_progress {
+            border-left-color: #ffc107;
+        }
+        
+        .task-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .task-title {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .status-badge {
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+            color: white;
+        }
+        
+        .status-pending {
+            background: #6c757d;
+        }
+        
+        .status-in_progress {
+            background: #ffc107;
+        }
+        
+        .status-completed {
+            background: #28a745;
+        }
+        
+        .status-failed {
+            background: #dc3545;
+        }
+        
+        .status-cancelled {
+            background: #6c757d;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 25px;
+            background: #e0e0e0;
+            border-radius: 12px;
+            overflow: hidden;
+            margin: 15px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            transition: width 0.5s ease-out;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .task-info {
+            color: #666;
+            font-size: 0.9em;
+            margin-top: 10px;
+        }
+        
+        .result-box {
+            background: #e7f3ff;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            word-break: break-all;
+            font-family: monospace;
+        }
+        
+        .error-message {
+            background: #ffe7e7;
+            color: #dc3545;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .tab {
+            padding: 10px 20px;
+            background: #e0e0e0;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        .tab.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .info-text {
+            color: #666;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+        
+        .server-info {
+            display: inline-block;
+            background: #e7f3ff;
+            padding: 3px 10px;
+            border-radius: 5px;
+            font-size: 0.85em;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔢 Fibonacci Calculator</h1>
+            <p>Обчислення чисел Фібоначчі з балансуванням навантаження</p>
+        </div>
+
+        <!-- Секція авторизації -->
+        <div id="authSection" class="auth-section">
+            <h2>🔐 Авторизація</h2>
+            <div class="form-group">
+                <label>Username</label>
+                <input type="text" id="username" placeholder="Введіть username">
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="password" placeholder="Введіть пароль">
+            </div>
+            <button onclick="login()">Увійти</button>
+            <button class="btn-secondary" onclick="register()">Реєстрація</button>
+        </div>
+
+        <!-- Основна секція (спочатку прихована) -->
+        <div id="mainSection" class="main-section hidden">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2>👤 <span id="currentUser"></span></h2>
+                <button class="btn-secondary" onclick="logout()">Вийти</button>
+            </div>
+
+            <!-- Створення нової задачі -->
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                <h3>➕ Створити нову задачу</h3>
+                <div class="form-group">
+                    <label>Число Фібоначчі (max: 1,000,000)</label>
+                    <input type="number" id="fibNumber" placeholder="Наприклад: 10000" min="0" max="1000000">
+                    <div class="info-text">Чим більше число, тим довше обчислення</div>
+                </div>
+                <button onclick="createTask()">🚀 Обчислити</button>
+            </div>
+
+            <!-- Вкладки -->
+            <div class="tabs">
+                <button class="tab active" onclick="showTab('all')">Всі задачі</button>
+                <button class="tab" onclick="showTab('active')">Активні</button>
+                <button class="tab" onclick="showTab('history')">Історія</button>
+            </div>
+
+            <!-- Список задач -->
+            <div id="tasksList"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8000/api';
+        let token = localStorage.getItem('token');
+        let currentTab = 'all';
+        let autoRefreshInterval = null;
+
+        // Ініціалізація
+        if (token) {
+            showMainSection();
+            loadTasks();
+            startAutoRefresh();
+        }
+
+        // Реєстрація
+        async function register() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            if (!username || !password) {
+                alert('Заповніть всі поля!');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/auth/register/`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({username, password})
+                });
+
+                if (response.ok) {
+                    alert('✅ Реєстрація успішна! Тепер увійдіть.');
+                } else {
+                    const data = await response.json();
+                    alert('❌ Помилка: ' + JSON.stringify(data));
+                }
+            } catch (error) {
+                alert('❌ Помилка: ' + error.message);
+            }
+        }
+
+        // Логін
+        async function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            if (!username || !password) {
+                alert('Заповніть всі поля!');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/token/`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({username, password})
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    token = data.access;
+                    localStorage.setItem('token', token);
+                    localStorage.setItem('username', username);
+                    showMainSection();
+                    loadTasks();
+                    startAutoRefresh();
+                } else {
+                    alert('❌ Невірний username або пароль');
+                }
+            } catch (error) {
+                alert('❌ Помилка: ' + error.message);
+            }
+        }
+
+        // Вийти
+        function logout() {
+            token = null;
+            localStorage.removeItem('token');
+            localStorage.removeItem('username');
+            stopAutoRefresh();
+            document.getElementById('authSection').classList.remove('hidden');
+            document.getElementById('mainSection').classList.add('hidden');
+        }
+
+        // Показати основну секцію
+        function showMainSection() {
+            document.getElementById('authSection').classList.add('hidden');
+            document.getElementById('mainSection').classList.remove('hidden');
+            document.getElementById('currentUser').textContent = localStorage.getItem('username');
+        }
+
+        // Створити задачу
+        async function createTask() {
+            const number = parseInt(document.getElementById('fibNumber').value);
+
+            if (!number || number < 0 || number > 1000000) {
+                alert('Введіть число від 0 до 1,000,000');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/tasks/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({number})
+                });
+
+                const data = await response.json();
+
+                if (response.ok || response.status === 202) {
+                    document.getElementById('fibNumber').value = '';
+                    loadTasks();
+                } else {
+                    alert('❌ Помилка: ' + JSON.stringify(data));
+                }
+            } catch (error) {
+                alert('❌ Помилка: ' + error.message);
+            }
+        }
+
+        // Завантажити задачі
+        async function loadTasks() {
+            let url = `${API_URL}/tasks/`;
+            
+            if (currentTab === 'active') {
+                url = `${API_URL}/tasks/active/`;
+            } else if (currentTab === 'history') {
+                url = `${API_URL}/tasks/history/`;
+            }
+
+            try {
+                const response = await fetch(url, {
+                    headers: {'Authorization': `Bearer ${token}`}
+                });
+
+                if (response.ok) {
+                    const tasks = await response.json();
+                    displayTasks(tasks);
+                } else if (response.status === 401) {
+                    logout();
+                }
+            } catch (error) {
+                console.error('Error loading tasks:', error);
+            }
+        }
+
+        // Відобразити задачі
+        function displayTasks(tasks) {
+            const container = document.getElementById('tasksList');
+
+            if (tasks.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #999; padding: 40px;">Задач немає</p>';
+                return;
+            }
+
+            container.innerHTML = tasks.map(task => `
+                <div class="task-card ${task.status}">
+                    <div class="task-header">
+                        <div>
+                            <span class="task-title">Task #${task.id} - Fibonacci(${task.number})</span>
+                            ${task.server_url ? `<span class="server-info">📡 ${task.server_url}</span>` : ''}
+                        </div>
+                        <div>
+                            <span class="status-badge status-${task.status}">${getStatusText(task.status)}</span>
+                            ${(task.status === 'pending' || task.status === 'in_progress') ? 
+                                `<button class="btn-danger" onclick="cancelTask(${task.id})">❌ Скасувати</button>` : ''}
+                        </div>
+                    </div>
+
+                    ${(task.status === 'in_progress' || task.status === 'pending') ? `
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${task.progress}%">
+                                ${task.progress}%
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    ${task.result ? `
+                        <div class="result-box">
+                            <strong>📊 Результат:</strong><br>
+                            ${task.result}
+                        </div>
+                    ` : ''}
+
+                    ${task.error_message ? `
+                        <div class="error-message">
+                            <strong>❌ Помилка:</strong><br>
+                            ${task.error_message}
+                        </div>
+                    ` : ''}
+
+                    <div class="task-info">
+                        📅 Створено: ${new Date(task.created_at).toLocaleString('uk-UA')}<br>
+                        ${task.completed_at ? `✅ Завершено: ${new Date(task.completed_at).toLocaleString('uk-UA')}` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Скасувати задачу
+        async function cancelTask(id) {
+            if (!confirm('Скасувати задачу?')) return;
+
+            try {
+                const response = await fetch(`${API_URL}/tasks/${id}/cancel/`, {
+                    method: 'POST',
+                    headers: {'Authorization': `Bearer ${token}`}
+                });
+
+                if (response.ok) {
+                    alert('✅ Задача скасована');
+                    loadTasks();
+                }
+            } catch (error) {
+                alert('❌ Помилка: ' + error.message);
+            }
+        }
+
+        // Перемкнути вкладку
+        function showTab(tab) {
+            currentTab = tab;
+            
+            // Оновити активну вкладку
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            loadTasks();
+        }
+
+        // Текст статусу
+        function getStatusText(status) {
+            const statuses = {
+                'pending': '⏳ Очікує',
+                'in_progress': '⚙️ Виконується',
+                'completed': '✅ Завершено',
+                'failed': '❌ Помилка',
+                'cancelled': '🚫 Скасовано'
+            };
+            return statuses[status] || status;
+        }
+
+        // Автооновлення
+        function startAutoRefresh() {
+            autoRefreshInterval = setInterval(loadTasks, 1000); 
+        }
+
+        function stopAutoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+            }
+        }
+    </script>
+</body>
+</html>

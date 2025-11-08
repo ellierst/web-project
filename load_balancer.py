@@ -5,7 +5,10 @@ import sys
 from collections import deque
 from threading import Lock, Thread
 import time
+from datetime import datetime, timedelta
 import traceback
+
+AVERAGE_TASK_TIME = 30 
 
 # Список серверів
 BACKENDS = [
@@ -141,8 +144,12 @@ class SmartLoadBalancerHandler(BaseHTTPRequestHandler):
                 task_queue.append({
                     'body': body,
                     'headers': headers,
+                    'queued_at': datetime.now()
                 })
                 queue_position = len(task_queue)
+            
+            wait_time = self.estimate_wait_time(queue_position)
+            eta_datetime = datetime.now() + timedelta(seconds=int(queue_position / len(BACKENDS) * AVERAGE_TASK_TIME))
             
             print(f"   Задача додана в чергу очікування")
             print(f"   Позиція в черзі: {queue_position}")
@@ -157,7 +164,10 @@ class SmartLoadBalancerHandler(BaseHTTPRequestHandler):
                 'status': 'queued',
                 'message': f'Всі сервери зайняті. Задача в черзі очікування.',
                 'queue_position': queue_position,
-                'queue_length': queue_position
+                'queue_length': queue_position,
+                'estimated_wait_time': wait_time,                           # ← Нове!
+                'estimated_start_time': eta_datetime.isoformat(),          # ← Нове!
+                'queued_at': datetime.now().isoformat()
             }
             
             self.wfile.write(json.dumps(response_data).encode())
@@ -197,6 +207,30 @@ class SmartLoadBalancerHandler(BaseHTTPRequestHandler):
         except Exception as e:
             self.send_error(502, f"Server Error: {str(e)}")
             print(f"Помилка відправки на {server_url}: {e}")
+
+    def estimate_wait_time(self, queue_position):
+        """
+        Розрахувати приблизний час очікування
+        """
+        # Кількість серверів
+        num_servers = len(BACKENDS)
+        
+        # Середній час виконання задачі
+        avg_time = AVERAGE_TASK_TIME
+        
+        # Формула: (позиція в черзі / кількість серверів) * середній час
+        estimated_seconds = (queue_position / num_servers) * avg_time
+        
+        # Конвертуємо в зручний формат
+        if estimated_seconds < 60:
+            return f"{int(estimated_seconds)} секунд"
+        elif estimated_seconds < 3600:
+            minutes = int(estimated_seconds / 60)
+            return f"{minutes} хвилин"
+        else:
+            hours = int(estimated_seconds / 3600)
+            minutes = int((estimated_seconds % 3600) / 60)
+            return f"{hours} год {minutes} хв"
 
 
 def queue_processor():
