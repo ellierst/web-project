@@ -10,13 +10,14 @@ CANCELLATION_CHECKS = 100
 
 @background(schedule=0)
 def calculate_fibonacci_task(task_id, n):
+    print(f"START TASK #{task_id} on {os.getenv('SERVER_PORT')}")
     """Background task для обчислення чисел Фібоначчі"""
     try:
         task = Task.objects.get(id=task_id)
-        server_port = os.getenv("SERVER_PORT", "unknown")
-        task.server_url = f"http://127.0.0.1:{server_port}"
+        
+        # ПОЧАТОК: статус in_progress
         task.status = 'in_progress'
-        task.started_at = timezone.now()
+        task.progress = 0
         task.save()
         
         if n == 0:
@@ -40,6 +41,11 @@ def calculate_fibonacci_task(task_id, n):
                     
                     # Check if cancelled
                     if task.status == 'cancelled':
+                        # ВАЖЛИВО: Зберігаємо фінальний стан скасованої задачі
+                        task.progress = progress
+                        task.completed_at = timezone.now()
+                        task.save()
+                        print(f"\nTASK #{task_id} CANCELLED at {progress}%")
                         return
                     
                     task.progress = min(progress, 99)
@@ -52,6 +58,12 @@ def calculate_fibonacci_task(task_id, n):
                 if i % cancel_check_interval == 0:
                     task.refresh_from_db()
                     if task.status == 'cancelled':
+                        # ВАЖЛИВО: Зберігаємо фінальний стан скасованої задачі
+                        progress = int((i / n) * 100)
+                        task.progress = progress
+                        task.completed_at = timezone.now()
+                        task.save()
+                        print(f"\n🚫 TASK #{task_id} CANCELLED at {progress}%")
                         return
             
             result = str(b)
@@ -68,6 +80,10 @@ def calculate_fibonacci_task(task_id, n):
             task.status = 'completed'
             task.completed_at = timezone.now()
             task.save()
+        else:    
+            task.completed_at = timezone.now()
+            task.save()
+            print(f"\n🚫 TASK #{task_id} WAS CANCELLED BEFORE SAVING RESULT")
         
     except Task.DoesNotExist:
         pass

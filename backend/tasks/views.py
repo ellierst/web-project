@@ -7,6 +7,9 @@ from .serializers import TaskSerializer, TaskCreateSerializer, UserRegistrationS
 from .tasks import calculate_fibonacci_task
 from rest_framework.decorators import api_view, permission_classes
 from django.db.models import Q
+import os
+
+MAX_TASKS_PER_SERVER = 2
 
 class UserRegistrationView(viewsets.GenericViewSet):
     permission_classes = [AllowAny]
@@ -52,6 +55,24 @@ class TaskViewSet(viewsets.ModelViewSet):
         
         return Response(TaskSerializer(task).data, status=status.HTTP_201_CREATED)
     
+    @action(detail=False, methods=['get'])
+    def active(self, request):
+        tasks = Task.objects.filter(
+            user=request.user,
+            status__in=['pending', 'queued', 'in_progress']
+        ).order_by('-created_at')
+        serializer = self.get_serializer(tasks, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def history(self, request):
+        tasks = Task.objects.filter(
+            user=request.user,
+            status__in=['completed', 'failed', 'cancelled']
+        ).order_by('-completed_at')
+        serializer = self.get_serializer(tasks, many=True)
+        return Response(serializer.data)
+    
     @action(detail=True, methods=['post'])
     def cancel(self, request, pk=None):
         task = self.get_object()
@@ -91,24 +112,24 @@ class TaskViewSet(viewsets.ModelViewSet):
 @permission_classes([AllowAny])
 def server_status(request):
     """
-    Повертає статус сервера — чи є активні задачі саме на цьому сервері
+    Повертає статус сервера для Load Balancer
     """
-    import os
-
-    server_port = os.getenv("SERVER_PORT", "unknown")
+    server_port = request.META.get('SERVER_PORT', 'unknown')
     server_url = f"http://127.0.0.1:{server_port}"
 
-    # Рахуємо тільки ті задачі, що створені на цьому сервері
-    active_tasks = Task.objects.filter(
-        Q(status='pending') | Q(status='in_progress'),
+    # Рахуємо тільки задачі НА ЦЬОМУ СЕРВЕРІ
+    in_progress_count = Task.objects.filter(
+        status='in_progress',
         server_url=server_url
     ).count()
 
-    is_busy = active_tasks > 0  # наприклад, максимум 2 задачі одночасно
+    available_slots = MAX_TASKS_PER_SERVER - in_progress_count
+    busy = in_progress_count >= MAX_TASKS_PER_SERVER
 
     return Response({
-        'server_port': server_port,
-        'busy': is_busy,
-        'active_tasks': active_tasks,
-        'status': 'busy' if is_busy else 'free'
+        'busy': busy,
+        'in_progress_tasks': in_progress_count,
+        'available_slots': max(0, available_slots),
+        'server_url': server_url,
+        'max_tasks': MAX_TASKS_PER_SERVER
     })
