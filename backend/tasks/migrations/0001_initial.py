@@ -19,7 +19,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('number', models.IntegerField()),
-                ('status', models.CharField(choices=[('pending', 'Pending'), ('in_progress', 'In Progress'), ('completed', 'Completed'), ('cancelled', 'Cancelled'), ('failed', 'Failed')], default='pending', max_length=20)),
+                ('status', models.CharField(choices=[('in_progress', 'In Progress'), ('completed', 'Completed'), ('cancelled', 'Cancelled'), ('failed', 'Failed')], max_length=20)),
                 ('progress', models.IntegerField(default=0)),
                 ('result', models.TextField(blank=True, null=True)),
                 ('error_message', models.TextField(blank=True, null=True)),

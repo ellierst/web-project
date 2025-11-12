@@ -10,19 +10,9 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
-            model_name='task',
-            name='estimated_wait_time',
-            field=models.CharField(blank=True, max_length=100, null=True),
-        ),
-        migrations.AddField(
-            model_name='task',
-            name='queue_position',
-            field=models.IntegerField(blank=True, null=True),
-        ),
         migrations.AlterField(
             model_name='task',
             name='status',
-            field=models.CharField(choices=[('pending', 'Pending'), ('queued', 'Queued'), ('in_progress', 'In Progress'), ('completed', 'Completed'), ('cancelled', 'Cancelled'), ('failed', 'Failed')], default='pending', max_length=20),
+            field=models.CharField(choices=[('in_progress', 'In Progress'), ('completed', 'Completed'), ('cancelled', 'Cancelled'), ('failed', 'Failed')], max_length=20),
         ),
     ]

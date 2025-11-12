@@ -15,79 +15,48 @@ class TasksConfig(AppConfig):
         
         # Перевіряємо чи це не міграція або інша команда
         if 'runserver' in sys.argv or 'waitress-serve' in ' '.join(sys.argv) or 'gunicorn' in sys.argv[0]:
-            
-            print(f'\n{"="*70}')
-            print('🧹 CLEANUP AT STARTUP')
-            print(f'{"="*70}\n')
+
+            print('\nCLEANUP AT STARTUP\n')
             
             try:
-                # ============================================
-                # 1. ОЧИЩЕННЯ ВАШИХ TASK МОДЕЛЕЙ
-                # ============================================
-                stuck_tasks = Task.objects.filter(
-                    status__in=['pending', 'in_progress']
-                )
-                
+                stuck_tasks = Task.objects.filter(status='in_progress')
                 count = stuck_tasks.count()
-                
+
                 if count > 0:
-                    print(f'📋 TASKS (your models):')
-                    print(f'   Знайдено {count} завислих задач')
-                    
-                    # Оновити статус
+                    print(f'TASKS: Знайдено {count} завислих задач')
+
                     stuck_tasks.update(
                         status='failed',
-                        error_message='Сервер був перезапущений. Задача скасована.',
                         completed_at=timezone.now()
                     )
                     
-                    print(f'   ✅ Оновлено {count} задач → status=failed')
+                    print(f'Оновлено {count} задач → status=failed')
                     
                     for task in stuck_tasks:
-                        print(f'      Task #{task.id}: Fibonacci({task.number}) user={task.user.username}')
-                    print()
+                        print(f'   Task #{task.id}: Fibonacci({task.number}) user={task.user.username}')
                 else:
-                    print(f'📋 TASKS (your models): Завислих задач не знайдено\n')
-                
-                # ============================================
-                # 2. ОЧИЩЕННЯ BACKGROUND TASK ТАБЛИЦЬ
-                # ============================================
+                    print('TASKS: Завислих задач не знайдено')
+
                 try:
                     from background_task.models import Task as BackgroundTask, CompletedTask
-                    
-                    # Рахуємо що є
-                    pending_count = BackgroundTask.objects.count()
+
+                    in_progress__count = BackgroundTask.objects.count()
                     completed_count = CompletedTask.objects.count()
-                    
-                    print(f'🔧 BACKGROUND_TASK (internal queue):')
-                    print(f'   BackgroundTask: {pending_count}')
-                    print(f'   CompletedTask: {completed_count}')
-                    
-                    if pending_count > 0 or completed_count > 0:
-                        # Видаляємо ВСІ старі background tasks
-                        if pending_count > 0:
-                            BackgroundTask.objects.all().delete()
-                            print(f'   ✅ Видалено {pending_count} BackgroundTask')
-                        
-                        if completed_count > 0:
-                            CompletedTask.objects.all().delete()
-                            print(f'   ✅ Видалено {completed_count} CompletedTask')
-                        print()
-                    else:
-                        print(f'   ✅ Черга чиста\n')
-                        
+
+                    print(f'   BACKGROUND_TASK:')
+                    print(f'   Progress: {in_progress__count}')
+                    print(f'   Completed: {completed_count}')
+
+                    if in_progress__count > 0:
+                        BackgroundTask.objects.all().delete()
+                        print(f' Видалено {in_progress__count} Progress Tasks')
+
+                    if completed_count > 0:
+                        CompletedTask.objects.all().delete()
+                        print(f' Видалено {completed_count} Completed Tasks')
+
                 except ImportError:
-                    print('⚠️ django-background-tasks не встановлено\n')
-                except Exception as e:
-                    if 'no such table' not in str(e).lower():
-                        print(f'⚠️ Помилка очищення background tasks: {e}\n')
-                
-                print(f'{"="*70}')
-                print('✅ CLEANUP COMPLETED')
-                print(f'{"="*70}\n')
-                    
+                    print('django-background-tasks не встановлено')
             except Exception as e:
-                # Ігноруємо помилки (наприклад, якщо таблиця ще не створена)
                 if 'no such table' not in str(e).lower():
-                    print(f'❌ Cleanup error: {e}\n')
-                    print(f'{"="*70}\n')
+                    print(f'Помилка очищення background tasks: {e}')

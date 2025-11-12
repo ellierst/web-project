@@ -3,7 +3,6 @@ from django.contrib.auth.models import User
 
 class Task(models.Model):
     STATUS_CHOICES = [
-        ('pending', 'Pending'),
         ('in_progress', 'In Progress'),
         ('completed', 'Completed'),
         ('cancelled', 'Cancelled'),
@@ -12,7 +11,7 @@ class Task(models.Model):
     
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='tasks')
     number = models.IntegerField()
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES)
     progress = models.IntegerField(default=0)
     result = models.TextField(null=True, blank=True)
     error_message = models.TextField(null=True, blank=True)

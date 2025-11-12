@@ -8,8 +8,20 @@ from .tasks import calculate_fibonacci_task
 from rest_framework.decorators import api_view, permission_classes
 from django.db.models import Q
 import os
+import sys
 
-MAX_TASKS_PER_SERVER = 2
+project_root = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(project_root, 'backend'))
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'backend.settings')
+
+try:
+    import django
+    django.setup()
+except Exception as _e:
+
+    print(f"Django setup warning: {_e}")
+
+from django.conf import settings
 
 class UserRegistrationView(viewsets.GenericViewSet):
     permission_classes = [AllowAny]
@@ -42,15 +54,13 @@ class TaskViewSet(viewsets.ModelViewSet):
         server_port = request.META.get('SERVER_PORT', 'unknown')
         server_url = f"http://127.0.0.1:{server_port}"
         
-        # Create task
         task = Task.objects.create(
             user=request.user,
             number=serializer.validated_data['number'],
-            status='pending',
+            status='in_progress',
             server_url=server_url
         )
-        
-        # Start background task
+ 
         calculate_fibonacci_task(task.id, task.number)
         
         return Response(TaskSerializer(task).data, status=status.HTTP_201_CREATED)
@@ -59,7 +69,7 @@ class TaskViewSet(viewsets.ModelViewSet):
     def active(self, request):
         tasks = Task.objects.filter(
             user=request.user,
-            status__in=['pending', 'queued', 'in_progress']
+            status__in=['in_progress']
         ).order_by('-created_at')
         serializer = self.get_serializer(tasks, many=True)
         return Response(serializer.data)
@@ -88,16 +98,6 @@ class TaskViewSet(viewsets.ModelViewSet):
         
         return Response(TaskSerializer(task).data)
     
-    @action(detail=False, methods=['get'])
-    def history(self, request):
-        tasks = self.get_queryset().filter(status__in=['completed', 'cancelled', 'failed'])
-        return Response(TaskSerializer(tasks, many=True).data)
-    
-    @action(detail=False, methods=['get'])
-    def active(self, request):
-        tasks = self.get_queryset().filter(status__in=['pending', 'in_progress'])
-        return Response(TaskSerializer(tasks, many=True).data)
-    
     @action(detail=True, methods=['get'])
     def progress(self, request, pk=None):
         task = self.get_object()
@@ -111,9 +111,6 @@ class TaskViewSet(viewsets.ModelViewSet):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def server_status(request):
-    """
-    Повертає статус сервера для Load Balancer
-    """
     server_port = request.META.get('SERVER_PORT', 'unknown')
     server_url = f"http://127.0.0.1:{server_port}"
 
@@ -123,13 +120,13 @@ def server_status(request):
         server_url=server_url
     ).count()
 
-    available_slots = MAX_TASKS_PER_SERVER - in_progress_count
-    busy = in_progress_count >= MAX_TASKS_PER_SERVER
+    available_slots = settings.MAX_TASKS_PER_SERVER - in_progress_count
+    busy = in_progress_count >= settings.MAX_TASKS_PER_SERVER
 
     return Response({
         'busy': busy,
         'in_progress_tasks': in_progress_count,
         'available_slots': max(0, available_slots),
         'server_url': server_url,
-        'max_tasks': MAX_TASKS_PER_SERVER
+        'max_tasks': settings.MAX_TASKS_PER_SERVER
     })

@@ -52,7 +52,7 @@ class TaskCreateSerializer(serializers.Serializer):
         user = self.context['request'].user
         active_tasks = Task.objects.filter(
             user=user,
-            status__in=['pending', 'in_progress']
+            status__in=['in_progress']
         ).count()
         
         if active_tasks >= settings.MAX_TASKS_PER_USER:

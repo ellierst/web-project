@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🔢 Fibonacci Calculator</title>
+    <title>Fibonacci Calculator</title>
     <style>
         * {
             margin: 0;
@@ -150,7 +150,7 @@
             color: white;
         }
         
-        .status-pending {
+        .status-waiting {
             background: #6c757d;
         }
         
@@ -305,18 +305,56 @@
             font-weight: bold;
             color: #856404;
         }
+
+        .sticky-queue-banner {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: bold;
+        }
+
+        .queue-banner-content {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .queue-banner-icon {
+            font-size: 1.5em;
+        }
+
+        .queue-banner-text {
+            font-size: 1.1em;
+        }
+
+        .queue-banner-count {
+            background: rgba(255,255,255,0.3);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 1.3em;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>🔢 Fibonacci Calculator</h1>
+            <h1>Fibonacci Calculator</h1>
             <p>Обчислення чисел Фібоначчі з балансуванням навантаження</p>
         </div>
 
         <!-- Секція авторизації -->
         <div id="authSection" class="auth-section">
-            <h2>🔐 Авторизація</h2>
+            <h2>Авторизація</h2>
             <div class="form-group">
                 <label>Username</label>
                 <input type="text" id="username" placeholder="Введіть username">
@@ -336,35 +374,48 @@
                 <button class="btn-secondary" onclick="logout()">Вийти</button>
             </div>
 
-            <!-- Створення нової задачі -->
             <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
                 <h3>➕ Створити нову задачу</h3>
                 <div class="form-group">
-                    <label>Число Фібоначчі (max: 1,000,000)</label>
+                    <label>Число Фібоначчі (максимальне: 1,000,000)</label>
                     <input type="number" id="fibNumber" placeholder="Наприклад: 10000" min="0" max="1000000">
-                    <div class="info-text">Задача буде додана в чергу і розподілена балансувальником</div>
                 </div>
-                <button onclick="createTask()">🚀 Додати в чергу</button>
+                <button id="createTaskBtn" onclick="createTask()">Додати в чергу</button>
+                <div id="taskCooldownTimer" style="display: none; color: #666; font-size: 0.9em; margin-top: 10px;">
+                    ⏳ Зачекайте <span id="cooldownTime">5</span> секунд до наступної задачі...
+                </div>
             </div>
 
-            <!-- Вкладки -->
             <div class="tabs">
                 <button class="tab active" onclick="showTab('all')">Всі задачі</button>
                 <button class="tab" onclick="showTab('active')">Активні</button>
                 <button class="tab" onclick="showTab('history')">Історія</button>
             </div>
 
-            <!-- Список задач -->
+            <div id="queueBanner" class="sticky-queue-banner" style="display: none;">
+                <div class="queue-banner-content">
+                    <span class="queue-banner-icon">📋</span>
+                    <span class="queue-banner-text" id="queueBannerText">Задач в черзі:</span>
+                    <span id="queueBannerTime" style="font-size: 0.9em; opacity: 0.8; margin-left: 15px; display: none;"></span>
+                </div>
+                <div class="queue-banner-count" id="queueCount">0</div>
+            </div>
+
             <div id="tasksList"></div>
         </div>
     </div>
 
     <script>
-        const API_URL = 'http://localhost:8000/api';
+    // Load Balancer на порту 3000 (всі запити до API тепер проходять через балансувальник)
+    const LOAD_BALANCER_URL = 'http://localhost:3000/api';
+    const API_URL = LOAD_BALANCER_URL;
+        
         let token = localStorage.getItem('token');
         let currentTab = 'all';
         let autoRefreshInterval = null;
         let serverStatuses = {};
+        let taskCreationCooldown = false;
+        const TASK_COOLDOWN_SECONDS = 5;
 
         if (token) {
             showMainSection();
@@ -389,13 +440,13 @@
                 });
 
                 if (response.ok) {
-                    alert('✅ Реєстрація успішна! Тепер увійдіть.');
+                    alert(' Реєстрація успішна! Тепер увійдіть.');
                 } else {
                     const data = await response.json();
-                    alert('❌ Помилка: ' + JSON.stringify(data));
+                    alert(' Помилка: ' + JSON.stringify(data));
                 }
             } catch (error) {
-                alert('❌ Помилка: ' + error.message);
+                alert(' Помилка: ' + error.message);
             }
         }
 
@@ -424,10 +475,10 @@
                     loadTasks();
                     startAutoRefresh();
                 } else {
-                    alert('❌ Невірний username або пароль');
+                    alert('Невірний username або пароль');
                 }
             } catch (error) {
-                alert('❌ Помилка: ' + error.message);
+                alert('Помилка: ' + error.message);
             }
         }
 
@@ -447,7 +498,6 @@
         }
 
         async function loadServerStatuses() {
-            // Завантажуємо статуси серверів для розрахунку часу очікування
             const servers = ['http://127.0.0.1:8001', 'http://127.0.0.1:8002'];
             
             for (const server of servers) {
@@ -463,69 +513,8 @@
             }
         }
 
-        function calculateEstimatedTime(task, allTasks) {
-            // Середній час виконання однієї задачі (в секундах)
-            const AVERAGE_TASK_TIME = 30;
-            const MAX_TASKS_PER_SERVER = 2;
-            
-            // Рахуємо скільки задач попереду
-            let tasksAhead = 0;
-            
-            if (task.status === 'queued' || task.status === 'pending') {
-                // Рахуємо задачі які виконуються зараз
-                const inProgressTasks = allTasks.filter(t => t.status === 'in_progress').length;
-                
-                // Рахуємо задачі в черзі попереду цієї
-                const queuedTasks = allTasks.filter(t => 
-                    (t.status === 'queued' || t.status === 'pending') && 
-                    t.id < task.id
-                ).length;
-                
-                tasksAhead = inProgressTasks + queuedTasks;
-            } else if (task.status === 'in_progress') {
-                // Для задач що виконуються, показуємо приблизний час до завершення
-                const progress = task.progress || 0;
-                const remainingPercent = 100 - progress;
-                const estimatedSeconds = (remainingPercent / 100) * AVERAGE_TASK_TIME;
-                
-                return formatTime(estimatedSeconds);
-            }
-            
-            // Розрахунок часу очікування
-            const numServers = 2;
-            const estimatedSeconds = (tasksAhead / (numServers * MAX_TASKS_PER_SERVER)) * AVERAGE_TASK_TIME;
-            
-            return formatTime(estimatedSeconds);
-        }
-
-        function formatTime(seconds) {
-            if (seconds < 10) {
-                return "кілька секунд";
-            } else if (seconds < 60) {
-                return `${Math.round(seconds)} секунд`;
-            } else if (seconds < 3600) {
-                const minutes = Math.round(seconds / 60);
-                return `${minutes} ${minutes === 1 ? 'хвилина' : minutes < 5 ? 'хвилини' : 'хвилин'}`;
-            } else {
-                const hours = Math.floor(seconds / 3600);
-                const minutes = Math.round((seconds % 3600) / 60);
-                return `${hours} год ${minutes} хв`;
-            }
-        }
-
-        function getQueuePosition(task, allTasks) {
-            if (task.status !== 'queued' && task.status !== 'pending') {
-                return null;
-            }
-            
-            // Рахуємо позицію в черзі
-            const queuedTasks = allTasks.filter(t => 
-                (t.status === 'queued' || t.status === 'pending') && 
-                new Date(t.created_at) <= new Date(task.created_at)
-            );
-            
-            return queuedTasks.length;
-        }
+        const DEFAULT_MAX_TASKS_PER_SERVER = 2;
+        const DEFAULT_AVERAGE_TASK_TIME = 300;
 
         async function createTask() {
             const number = parseInt(document.getElementById('fibNumber').value);
@@ -535,8 +524,15 @@
                 return;
             }
 
+            if (taskCreationCooldown) {
+                alert('⏳ Зачекайте перед додаванням наступної задачі!');
+                return;
+            }
+
+            setTaskCreationCooldown();
+
             try {
-                const response = await fetch(`${API_URL}/tasks/`, {
+                const response = await fetch(`${LOAD_BALANCER_URL}/tasks/`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -548,20 +544,41 @@
                 const data = await response.json();
 
                 if (response.status === 202) {
-                    // Задача в черзі
-                    alert(`✅ Задача додана в чергу!\n\nПозиція: ${data.queue_position}\nОчікуваний час: ${data.estimated_wait_time}`);
                     document.getElementById('fibNumber').value = '';
                     loadTasks();
                 } else if (response.ok || response.status === 201) {
-                    alert('✅ Задача створена!');
                     document.getElementById('fibNumber').value = '';
                     loadTasks();
                 } else {
-                    alert('❌ Помилка: ' + JSON.stringify(data));
+                    alert('Помилка: ' + JSON.stringify(data));
                 }
             } catch (error) {
-                alert('❌ Помилка: ' + error.message);
+                alert('Помилка: ' + error.message);
             }
+        }
+
+        function setTaskCreationCooldown() {
+            taskCreationCooldown = true;
+            const btn = document.getElementById('createTaskBtn');
+            const timer = document.getElementById('taskCooldownTimer');
+            const timeDisplay = document.getElementById('cooldownTime');
+
+            btn.disabled = true;
+            timer.style.display = 'block';
+
+            let secondsLeft = TASK_COOLDOWN_SECONDS;
+
+            const cooldownInterval = setInterval(() => {
+                secondsLeft--;
+                timeDisplay.textContent = secondsLeft;
+
+                if (secondsLeft <= 0) {
+                    clearInterval(cooldownInterval);
+                    taskCreationCooldown = false;
+                    btn.disabled = false;
+                    timer.style.display = 'none';
+                }
+            }, 1000);
         }
 
         async function loadTasks() {
@@ -574,7 +591,6 @@
             }
 
             try {
-                // Завантажуємо статуси серверів
                 await loadServerStatuses();
                 
                 const response = await fetch(url, {
@@ -584,11 +600,40 @@
                 if (response.ok) {
                     const tasks = await response.json();
                     displayTasks(tasks);
+                    await updateQueueStatusBanner();
                 } else if (response.status === 401) {
                     logout();
                 }
             } catch (error) {
                 console.error('Error loading tasks:', error);
+            }
+        }
+
+        async function updateQueueStatusBanner() {
+            try {
+                const response = await fetch(`${LOAD_BALANCER_URL}/queue-status/`); 
+                if (response.ok) {
+                    const data = await response.json();
+                    const count = data.queue_length;
+                    const estimatedTime = data.estimated_wait_time;
+                    
+                    document.getElementById('queueCount').textContent = count;
+                    
+                    const bannerTextElement = document.getElementById('queueBannerText');
+                    const bannerTimeElement = document.getElementById('queueBannerTime');
+                    
+                    if (count > 0) {
+                        bannerTextElement.innerHTML = `Задач в черзі:`;
+                        bannerTimeElement.textContent = `Приблизно ${estimatedTime}`;
+                        bannerTimeElement.style.display = 'block';
+                        document.getElementById('queueBanner').style.display = 'flex';
+                    } else {
+                        document.getElementById('queueBanner').style.display = 'none';
+                        bannerTimeElement.style.display = 'none';
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching queue status:', error);
             }
         }
 
@@ -601,10 +646,32 @@
             }
 
             container.innerHTML = tasks.map(task => {
-                const status = task.status || 'pending';
-                const statusClass = status === 'queued' ? 'queued' : status;
-                const queuePosition = getQueuePosition(task, tasks);
-                const estimatedTime = calculateEstimatedTime(task, tasks);
+                let status = task.status;
+                const queuePosition = task.queue_position;
+
+                const inLocalQueue = !!queuePosition && status !== 'in_progress' && status !== 'completed' && status !== 'failed' && status !== 'cancelled';
+                
+                const displayStatus = inLocalQueue ? 'awaiting_dispatch' : status;
+                const statusClass = displayStatus;
+
+                let estimatedTime = task.estimated_wait_time;
+                if ((!estimatedTime || estimatedTime === 'undefined') && queuePosition) {
+                    const numServers = Object.keys(serverStatuses).length || 2;
+                    const reportedMax = Object.values(serverStatuses).map(s => s.max_tasks || DEFAULT_MAX_TASKS_PER_SERVER);
+                    const maxPerServer = reportedMax.length ? Math.max(...reportedMax) : DEFAULT_MAX_TASKS_PER_SERVER;
+                    const avgTime = DEFAULT_AVERAGE_TASK_TIME;
+
+                    const estimatedSeconds = (queuePosition / (numServers * maxPerServer)) * avgTime;
+                    if (estimatedSeconds < 60) {
+                        estimatedTime = `${Math.round(estimatedSeconds)} секунд`;
+                    } else if (estimatedSeconds < 3600) {
+                        estimatedTime = `${Math.round(estimatedSeconds / 60)} хвилин`;
+                    } else {
+                        const hours = Math.floor(estimatedSeconds / 3600);
+                        const minutes = Math.floor((estimatedSeconds % 3600) / 60);
+                        estimatedTime = `${hours} год ${minutes} хв`;
+                    }
+                }
                 
                 return `
                 <div class="task-card ${statusClass}">
@@ -614,15 +681,15 @@
                             ${task.server_url ? `<span class="server-info">🔡 ${task.server_url}</span>` : ''}
                         </div>
                         <div>
-                            <span class="status-badge status-${statusClass}">${getStatusText(status)}</span>
-                            ${(status === 'pending' || status === 'in_progress' || status === 'queued') ? 
-                                `<button class="btn-danger" onclick="cancelTask(${task.id})">❌ Скасувати</button>` : ''}
+                            <span class="status-badge status-${statusClass}">${getStatusText(displayStatus)}</span>
+                            ${(displayStatus === 'awaiting_dispatch' || displayStatus === 'in_progress') ? 
+                                `<button class="btn-danger" onclick="cancelTask(${task.id})"> Скасувати</button>` : ''}
                         </div>
                     </div>
 
-                    ${(status === 'queued' || status === 'pending') && queuePosition ? `
+                    ${(displayStatus === 'awaiting_dispatch') && queuePosition ? `
                         <div class="queue-info">
-                            <strong>📋 Задача в черзі очікування</strong>
+                            <strong>Черга</strong>
                             <div class="queue-details">
                                 <div class="queue-item">
                                     <div class="queue-item-label">Позиція в черзі:</div>
@@ -636,36 +703,31 @@
                         </div>
                     ` : ''}
 
-                    ${(status === 'in_progress') ? `
+                    ${(displayStatus === 'in_progress') ? `
                         <div class="progress-bar">
                             <div class="progress-fill" style="width: ${task.progress}%">
                                 ${task.progress}%
                             </div>
                         </div>
-                        <div class="estimated-time-box">
-                            <span class="time-icon">⏱️</span>
-                            Приблизний час до завершення: 
-                            <span class="time-value">${estimatedTime}</span>
-                        </div>
                     ` : ''}
 
                     ${task.result ? `
                         <div class="result-box">
-                            <strong>📊 Результат:</strong><br>
+                            <strong> Результат:</strong><br>
                             ${task.result}
                         </div>
                     ` : ''}
 
                     ${task.error_message ? `
                         <div class="error-message">
-                            <strong>❌ Помилка:</strong><br>
+                            <strong> Помилка:</strong><br>
                             ${task.error_message}
                         </div>
                     ` : ''}
 
                     <div class="task-info">
-                        📅 Створено: ${new Date(task.created_at).toLocaleString('uk-UA')}<br>
-                        ${task.completed_at ? `✅ Завершено: ${new Date(task.completed_at).toLocaleString('uk-UA')}` : ''}
+                          Створено: ${new Date(task.created_at).toLocaleString('uk-UA')}<br>
+                        ${task.completed_at ? `Завершено: ${new Date(task.completed_at).toLocaleString('uk-UA')}` : ''}
                     </div>
                 </div>
             `}).join('');
@@ -681,11 +743,11 @@
                 });
 
                 if (response.ok) {
-                    alert('✅ Задача скасована');
+                    alert('Задача скасована');
                     loadTasks();
                 }
             } catch (error) {
-                alert('❌ Помилка: ' + error.message);
+                alert('Помилка: ' + error.message);
             }
         }
 
@@ -698,18 +760,17 @@
 
         function getStatusText(status) {
             const statuses = {
-                'pending': '⏳ Очікує',
-                'queued': '📋 В черзі',
-                'in_progress': '⚙️ Виконується',
-                'completed': '✅ Завершено',
-                'failed': '❌ Помилка',
-                'cancelled': '🚫 Скасовано'
+                'awaiting_dispatch': 'Очікує на відправку',
+                'in_progress': 'Виконується',
+                'completed': 'Завершено',
+                'failed': 'Помилка',
+                'cancelled': 'Скасовано'
             };
-            return statuses[status] || status;
+            return statuses[status] || ' ';
         }
 
         function startAutoRefresh() {
-            autoRefreshInterval = setInterval(loadTasks, 2000); 
+            autoRefreshInterval = setInterval(loadTasks, 3000); 
         }
 
         function stopAutoRefresh() {

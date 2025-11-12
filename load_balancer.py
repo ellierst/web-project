@@ -2,22 +2,33 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 import requests
 import json
 import sys
+import os
 from collections import deque
 from threading import Lock, Thread
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 import traceback
 
-AVERAGE_TASK_TIME = 30 
-MAX_TASKS_PER_SERVER = 2  # Максимум 2 задачі in_progress на сервері
+project_root = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(project_root, 'backend'))
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'backend.settings')
 
-# Список серверів
+try:
+    import django
+    django.setup()
+except Exception as _e:
+
+    print(f"Django setup warning: {_e}")
+
+from django.conf import settings
+
+MAIN_DB_SERVER = 'http://127.0.0.1:8000'
+
 BACKENDS = [
     {'url': 'http://127.0.0.1:8001'},
     {'url': 'http://127.0.0.1:8002'},
 ]
 
-# ЧЕРГА ОЧІКУВАННЯ - тут зберігаються ВСІ задачі до розподілу
 task_queue = deque()
 queue_lock = Lock()
 
@@ -30,6 +41,11 @@ class SmartLoadBalancerHandler(BaseHTTPRequestHandler):
                           format%args))
     
     def do_GET(self):
+        if self.path == '/favicon.ico':
+            self.send_response(204)  # No Content
+            self.end_headers()
+            return
+        
         self.proxy_request('GET')
     
     def do_POST(self):
@@ -53,6 +69,10 @@ class SmartLoadBalancerHandler(BaseHTTPRequestHandler):
         """Перевірка чи це запит на створення задачі"""
         return self.path == '/api/tasks/' and self.command == 'POST'
     
+    def is_queue_status_request(self):
+        """Перевірка чи це запит на статус черги"""
+        return self.path == '/api/queue-status/' and self.command == 'GET'
+    
     def send_cors_headers(self):
         """Додає CORS заголовки до відповіді"""
         self.send_header('Access-Control-Allow-Origin', '*')
@@ -61,23 +81,23 @@ class SmartLoadBalancerHandler(BaseHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Credentials', 'true')
     
     def proxy_request(self, method):
-        # Читаємо тіло запиту
         content_length = int(self.headers.get('Content-Length', 0))
         body = self.rfile.read(content_length) if content_length > 0 else None
-        
-        # Копіюємо headers
+
         headers = {}
         for key, value in self.headers.items():
             if key.lower() not in ['host', 'connection']:
                 headers[key] = value
-        
-        # Спеціальна логіка для створення задач - ДОДАЄМО В ЧЕРГУ
+
+        if self.is_queue_status_request():
+            self.handle_queue_status_request()
+            return
+
         if self.is_task_creation_request():
             self.handle_task_creation(body, headers)
             return
-        
-        # Для інших запитів - перший сервер
-        backend = BACKENDS[0]['url']
+
+        backend = MAIN_DB_SERVER
         
         try:
             response = requests.request(
@@ -103,19 +123,13 @@ class SmartLoadBalancerHandler(BaseHTTPRequestHandler):
             print(f"❌ Error: {e}")
     
     def handle_task_creation(self, body, headers):
-        """
-        Фронт надсилає запит на створення задачі
-        Load Balancer додає її в ЧЕРГУ (не створює відразу в БД!)
-        """
-        
         print(f"\n{'='*70}")
-        print(f"📥 НОВИЙ ЗАПИТ НА СТВОРЕННЯ ЗАДАЧІ")
-        print(f"{'='*70}")
+        print(f"\nНОВИЙ ЗАПИТ НА СТВОРЕННЯ ЗАДАЧІ\n")
         
-        # Перевіряємо валідність даних
         try:
             task_data = json.loads(body.decode('utf-8'))
             number = task_data.get('number')
+            user_id = task_data.get('user_id')
             
             if number is None or number < 0 or number > 1000000:
                 self.send_response(400)
@@ -126,14 +140,29 @@ class SmartLoadBalancerHandler(BaseHTTPRequestHandler):
                 }, ensure_ascii=False).encode('utf-8'))
                 return
                 
+            with queue_lock:
+                user_tasks_in_queue = [
+                    t for t in task_queue
+                    if json.loads(t['body'].decode('utf-8')).get('user_id') == user_id
+                ]
+                
+                if len(user_tasks_in_queue) >= 10:
+                    self.send_response(429)
+                    self.send_header('Content-Type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({
+                        'error': f'Максимальна кількість задач у черзі для користувача ({user_id}) досягнута (10)',
+                        'current_tasks': len(user_tasks_in_queue)
+                    }, ensure_ascii=False).encode('utf-8'))
+                    return
+
         except Exception as e:
             self.send_response(400)
             self.send_header('Content-Type', 'application/json')
             self.end_headers()
             self.wfile.write(json.dumps({'error': 'Invalid request'}).encode('utf-8'))
             return
-        
-        # Додаємо задачу в ЧЕРГУ
+
         with queue_lock:
             task_queue.append({
                 'body': body,
@@ -145,16 +174,14 @@ class SmartLoadBalancerHandler(BaseHTTPRequestHandler):
         
         wait_time = self.estimate_wait_time(queue_position)
         
-        print(f"✅ ДАНІ ВАЛІДНІ")
-        print(f"📊 Fibonacci({number})")
-        print(f"⏳ ДОДАНО В ЧЕРГУ")
+        print(f"\n ДАНІ ВАЛІДНІ")
+        print(f"   Fibonacci({number})")
+        print(f"   ДОДАНО В ЧЕРГУ")
         print(f"   Позиція в черзі: {queue_position}")
-        print(f"   Очікуваний час: {wait_time}")
-        print(f"{'='*70}\n")
+        print(f"   Очікуваний час: {wait_time}\n")
         
-        # Відповідаємо фронту що задача прийнята і в черзі
         self.send_response(202)
-        self.send_cors_headers()  # 202 Accepted
+        self.send_cors_headers()
         self.send_header('Content-Type', 'application/json')
         self.end_headers()
         
@@ -170,12 +197,33 @@ class SmartLoadBalancerHandler(BaseHTTPRequestHandler):
         
         self.wfile.write(json.dumps(response_data, ensure_ascii=False).encode('utf-8'))
     
-    def estimate_wait_time(self, queue_position):
-        """Розрахувати приблизний час очікування"""
-        num_servers = len(BACKENDS)
-        avg_time = AVERAGE_TASK_TIME
+    def handle_queue_status_request(self):
+        with queue_lock:
+            queue_length = len(task_queue)
+
+        if queue_length > 0:
+            estimated_wait_time = self.estimate_wait_time(queue_length)
+        else:
+            estimated_wait_time = "Немає"
         
-        estimated_seconds = (queue_position / (num_servers * MAX_TASKS_PER_SERVER)) * avg_time
+        self.send_response(200)
+        self.send_cors_headers()
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        
+        response_data = {
+            'queue_length': queue_length,
+            'estimated_wait_time': estimated_wait_time,
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        self.wfile.write(json.dumps(response_data, ensure_ascii=False).encode('utf-8'))
+    
+    def estimate_wait_time(self, queue_position):
+        num_servers = len(BACKENDS)
+        avg_time = settings.AVERAGE_TASK_TIME
+        
+        estimated_seconds = (queue_position / (num_servers * settings.MAX_TASKS_PER_SERVER)) * avg_time
         
         if estimated_seconds < 60:
             return f"{int(estimated_seconds)} секунд"
@@ -189,7 +237,6 @@ class SmartLoadBalancerHandler(BaseHTTPRequestHandler):
 
 
 def get_server_status(server_url):
-    """Отримати статус сервера"""
     try:
         response = requests.get(
             f"{server_url}/api/server-status/",
@@ -204,63 +251,54 @@ def get_server_status(server_url):
             }
         return None
     except Exception as e:
-        print(f"⚠️ Помилка перевірки {server_url}: {e}")
+        print(f"Помилка перевірки {server_url}: {e}")
         return None
 
 
-def find_free_server():
-    """
-    Знайти сервер з вільним слотом
-    Перевіряє по порядку: 8001, потім 8002
-    """
+def find_least_loaded_server():
+    available_servers = []
+
     for backend in BACKENDS:
         server_url = backend['url']
         status = get_server_status(server_url)
-        
-        if status and not status['busy'] and status['available_slots'] > 0:
-            return server_url
+        if status:
+            active_tasks = status.get('in_progress', 0)
+            available_slots = status.get('available_slots', 0)
+            if available_slots > 0:  # ще є вільні місця
+                available_servers.append((server_url, active_tasks))
 
-        time.sleep(1)
-    return None
+    if not available_servers:
+        return None
+
+    server_url, _ = min(available_servers, key=lambda x: x[1])
+    return server_url
 
 
 def queue_processor():
-    """
-    ГОЛОВНИЙ ПРОЦЕСОР ЧЕРГИ
-    Витягує задачі з черги і розподіляє по серверах
-    """
-    print("🔄 Queue Processor ЗАПУЩЕНО!")
-    print("📋 Алгоритм:")
-    print("   1. Витягує задачу з черги")
-    print("   2. Перевіряє 8001 - якщо < 2 задач → відправляє")
-    print("   3. Якщо 8001 зайнятий → перевіряє 8002")
-    print("   4. Якщо обидва зайняті → задача залишається в черзі")
-    print("   5. Повторює кожні 2 секунди\n")
+    print("\nQueue Processor ЗАПУЩЕНО!")
     
     check_counter = 0
-    
+
     while True:
         try:
-            time.sleep(2)
+            if not task_queue:
+                time.sleep(0.5)
+                continue
             check_counter += 1
-            
-            # Показуємо що процесор живий
+
             if check_counter % 15 == 0:
                 with queue_lock:
                     queue_len = len(task_queue)
-                print(f"💓 Queue Processor працює... (перевірок: {check_counter}, в черзі: {queue_len})")
+                print(f"Queue Processor працює... (в черзі: {queue_len})")
             
             with queue_lock:
                 if not task_queue:
                     continue
                 
-                print(f"\n{'='*70}")
-                print(f"🔍 ОБРОБКА ЧЕРГИ")
-                print(f"   Задач в черзі: {len(task_queue)}")
-                print(f"{'='*70}")
+                print(f"\n ОБРОБКА ЧЕРГИ")
+                print(f"   Задач в черзі: {len(task_queue)}\n")
                 
-                # Перевіряємо стан серверів
-                print("\n📊 СТАН СЕРВЕРІВ:")
+                print("\n СТАН СЕРВЕРІВ:")
                 server_statuses = {}
                 for i, backend in enumerate(BACKENDS, 1):
                     server_url = backend['url']
@@ -272,32 +310,28 @@ def queue_processor():
                         available = status['available_slots']
                         
                         print(f"   Сервер {i} ({server_url}):")
-                        print(f"      In Progress: {in_progress}/{MAX_TASKS_PER_SERVER}")
+                        print(f"      In Progress: {in_progress}/{settings.MAX_TASKS_PER_SERVER}")
                         print(f"      Доступно слотів: {available}")
-                        print(f"      Статус: {'🔴 ЗАЙНЯТИЙ' if status['busy'] else '🟢 ВІЛЬНИЙ'}")
-                
-                # Витягуємо ПЕРШУ задачу з черги (не видаляємо поки не відправимо!)
+                        print(f"      Статус: {'ЗАЙНЯТИЙ' if status['busy'] else 'ВІЛЬНИЙ'}")
+
                 if task_queue:
-                    task = task_queue[0]  # Дивимось на першу, але не видаляємо
+                    task = task_queue[0]
                     
-                    print(f"\n📦 НАСТУПНА ЗАДАЧА В ЧЕРЗІ:")
+                    print(f"\n НАСТУПНА ЗАДАЧА В ЧЕРЗІ:")
                     print(f"   Fibonacci({task['number']})")
                     print(f"   У черзі з: {task['queued_at'].strftime('%H:%M:%S')}")
                     
-                    # Шукаємо вільний сервер (спочатку 8001, потім 8002)
-                    free_server = find_free_server()
+                    free_server = find_least_loaded_server()
                     
                     if free_server:
-                        # Знайшли вільний сервер!
-                        task_queue.popleft()  # ТЕПЕР видаляємо з черги
+                        task_queue.popleft()
                         remaining = len(task_queue)
                         
-                        print(f"\n✅ ВІДПРАВКА ЗАДАЧІ")
+                        print(f"\n ВІДПРАВКА ЗАДАЧІ")
                         print(f"   Сервер: {free_server}")
                         print(f"   Залишилось в черзі: {remaining}")
                         
                         try:
-                            # Відправляємо задачу на бекенд для створення в БД
                             response = requests.post(
                                 f"{free_server}/api/tasks/",
                                 data=task['body'],
@@ -308,71 +342,56 @@ def queue_processor():
                             if response.status_code == 201:
                                 task_data = response.json()
                                 task_id = task_data.get('id', '?')
-                                print(f"✅ Задача #{task_id} успішно створена на {free_server}")
+                                print(f"   Задача #{task_id} успішно створена на {free_server}")
                                 print(f"   Статус: IN_PROGRESS")
-                                time.sleep(2)
                             else:
-                                print(f"⚠️ Помилка створення задачі: [{response.status_code}]")
+                                print(f"   Помилка створення задачі: [{response.status_code}]")
                                 print(f"   Відповідь: {response.text}")
                                 
                         except Exception as e:
-                            print(f"❌ Помилка відправки задачі: {e}")
+                            print(f"  Помилка відправки задачі: {e}")
                             # Повертаємо задачу на початок черги
                             task_queue.appendleft(task)
-                            print(f"   ↩️ Задача повернута на початок черги")
+                            print(f"  Задача повернута на початок черги")
                     
                     else:
                         # Всі сервери зайняті - задача залишається в черзі
-                        print(f"\n⏳ ВСІ СЕРВЕРИ ЗАЙНЯТІ")
+                        print(f"\n ВСІ СЕРВЕРИ ЗАЙНЯТІ")
                         print(f"   8001: {server_statuses.get(BACKENDS[0]['url'], {}).get('in_progress', '?')}/2 задач")
                         print(f"   8002: {server_statuses.get(BACKENDS[1]['url'], {}).get('in_progress', '?')}/2 задач")
-                        print(f"   Задача залишається в черзі, очікує звільнення...")
+                        print(f"   Задача залишається в черзі, очікує звільнення...\n")
                 
-                print(f"{'='*70}\n")
                 
         except Exception as e:
-            print(f"🔥 КРИТИЧНА ПОМИЛКА в Queue Processor: {e}")
+            print(f" КРИТИЧНА ПОМИЛКА в Queue Processor: {e}")
             traceback.print_exc()
 
 
 if __name__ == '__main__':
-    PORT = 8000
+    PORT = 3000
 
     print(f"\n{'='*70}")
-    print(f"🚀 SMART LOAD BALANCER (QUEUE MASTER)")
+    print(f"LOAD BALANCER")
     print(f"{'='*70}")
-    print(f"🌐 URL: http://localhost:{PORT}")
-    print(f"\n🔧 BACKEND СЕРВЕРИ:")
+    print(f"URL: http://localhost:{PORT}")
+    print(f"\n BACKEND СЕРВЕРИ:")
     for i, backend in enumerate(BACKENDS, 1):
-        print(f"   {i}. {backend['url']}")
-    print(f"\n⚙️ НАЛАШТУВАННЯ:")
-    print(f"   Максимум задач на сервер: {MAX_TASKS_PER_SERVER}")
-    print(f"   Середній час виконання: {AVERAGE_TASK_TIME}с")
-    print(f"\n📋 ПРИНЦИП РОБОТИ:")
-    print(f"   1. Фронт → Load Balancer: запит на створення задачі")
-    print(f"   2. Load Balancer перевіряє дані → додає в чергу")
-    print(f"   3. Queue Processor витягує з черги → шукає вільний сервер")
-    print(f"   4. Знайшов вільний → створює задачу в БД на цьому сервері")
-    print(f"   5. Не знайшов → задача залишається в черзі")
+        print(f"   {i+1}. {backend['url']}")
+    print(f"   Максимум задач на сервер: {settings.MAX_TASKS_PER_SERVER}")
+    print(f"   Середній час виконання: {settings.AVERAGE_TASK_TIME}с")
     print(f"{'='*70}\n")
-    
-    # Запускаємо Queue Processor у фоні
-    print("🔄 Запуск Queue Processor...")
+
+    print(" Запуск Queue Processor...")
     queue_thread = Thread(target=queue_processor, daemon=True)
     queue_thread.start()
     time.sleep(1)
-    
-    print("🌐 Запуск HTTP сервера...")
-    print("\n" + "=" * 70)
-    print("✅ ВСЕ ГОТОВО! Очікую запитів...")
-    print("=" * 70 + "\n")
+
+    print("\nВСЕ ГОТОВО! Очікую запитів...\n")
     
     try:
         server = HTTPServer(('0.0.0.0', PORT), SmartLoadBalancerHandler)
         server.serve_forever()
     except KeyboardInterrupt:
-        print("\n\n" + "=" * 70)
-        print("🛑 Load Balancer зупинено!")
-        print(f"📊 Задач залишилось в черзі: {len(task_queue)}")
-        print("=" * 70)
+        print("\n\nLoad Balancer зупинено!")
+        print(f"Задач залишилось в черзі: {len(task_queue)}")
         server.shutdown()

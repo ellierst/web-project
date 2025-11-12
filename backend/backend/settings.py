@@ -17,14 +17,14 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'rest_framework_simplejwt',
-    #'corsheaders',
+    'corsheaders',
     'background_task',
     'tasks',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    #'corsheaders.middleware.CorsMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -38,7 +38,7 @@ ROOT_URLCONF = 'backend.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [os.path.join(BASE_DIR.parent, 'frontend')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -53,13 +53,12 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'backend.wsgi.application'
 
-# ВАЖЛИВО: Змініть пароль якщо використали інший при встановленні PostgreSQL
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'taskdb',
         'USER': 'postgres',
-        'PASSWORD': '1111',  # ← Ваш пароль PostgreSQL
+        'PASSWORD': '1111',
         'HOST': 'localhost',
         'PORT': '5432',
     }
@@ -90,16 +89,15 @@ REST_FRAMEWORK = {
 }
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
 }
 
-#CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = True
 
-# Background Tasks Settings
 MAX_ATTEMPTS = 3
 BACKGROUND_TASK_RUN_ASYNC = True
-
-# Task limits
 MAX_FIBONACCI_NUMBER = 1000000
-MAX_TASKS_PER_USER = 10
+MAX_TASKS_PER_USER = 6
+MAX_TASKS_PER_SERVER = 2
+AVERAGE_TASK_TIME = 300

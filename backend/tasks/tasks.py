@@ -10,7 +10,6 @@ CANCELLATION_CHECKS = 100
 
 @background(schedule=0)
 def calculate_fibonacci_task(task_id, n):
-    print(f"START TASK #{task_id} on {os.getenv('SERVER_PORT')}")
     """Background task для обчислення чисел Фібоначчі"""
     try:
         task = Task.objects.get(id=task_id)
@@ -32,7 +31,7 @@ def calculate_fibonacci_task(task_id, n):
             for i in range(2, n + 1):
                 a, b = b, a + b
                 
-                time.sleep(0.5)
+                time.sleep(0.1)
 
                 # Update progress
                 if i % progress_interval == 0:
@@ -50,8 +49,6 @@ def calculate_fibonacci_task(task_id, n):
                     
                     task.progress = min(progress, 99)
                     task.save(update_fields=['progress'])
-
-                    sys.stdout.write(f"\r📊 Прогрес: {task.progress}%")
                     sys.stdout.flush()
                 
                 # Periodic cancellation check
