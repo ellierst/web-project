@@ -2,7 +2,6 @@ from background_task import background
 from django.utils import timezone
 from .models import Task
 import time
-import sys
 import os
 
 PROGRESS_UPDATES = 300
@@ -12,8 +11,7 @@ CANCELLATION_CHECKS = 100
 def calculate_fibonacci_task(task_id, n):
     try:
         task = Task.objects.get(id=task_id)
-        
-        task.status = 'in_progress'
+
         task.progress = 0
         task.save()
         
@@ -39,7 +37,6 @@ def calculate_fibonacci_task(task_id, n):
                         task.progress = progress
                         task.completed_at = timezone.now()
                         task.save()
-                        print(f"\nTASK #{task_id} CANCELLED at {progress}%")
                         return
                     
                     task.progress = min(progress, 99)
@@ -52,7 +49,6 @@ def calculate_fibonacci_task(task_id, n):
                         task.progress = progress
                         task.completed_at = timezone.now()
                         task.save()
-                        print(f"\nTASK #{task_id} CANCELLED at {progress}%")
                         return
             
             result = str(b)
@@ -67,7 +63,7 @@ def calculate_fibonacci_task(task_id, n):
             task.status = 'completed'
             task.completed_at = timezone.now()
             task.save()
-        else:    
+        else:
             task.completed_at = timezone.now()
             task.save()
         

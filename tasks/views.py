@@ -48,6 +48,8 @@ class TaskViewSet(viewsets.ModelViewSet):
         )
  
         calculate_fibonacci_task(task.id, task.number)
+
+        print(f"\nTask {task.id} created for user {request.user.username} on server {server_url}")
         
         return Response(TaskSerializer(task).data, status=status.HTTP_201_CREATED)
     

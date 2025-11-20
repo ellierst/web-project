@@ -32,7 +32,7 @@ BACKENDS = [
 task_queue = deque()
 queue_lock = Lock()
 
-class SmartLoadBalancerHandler(BaseHTTPRequestHandler):
+class LoadBalancer(BaseHTTPRequestHandler):
     
     def log_message(self, format, *args):
         sys.stdout.write("%s - - [%s] %s\n" %
@@ -325,6 +325,7 @@ def queue_processor():
                         print(f"Залишилось в черзі: {remaining}")
                         
                         try:
+                            
                             response = requests.post(
                                 f"{free_server}/api/tasks/",
                                 data=task['body'],
@@ -365,7 +366,6 @@ if __name__ == '__main__':
         print(f"   {i+1}. {backend['url']}")
     print(f"Максимум задач на сервер: {settings.MAX_TASKS_PER_SERVER}")
     print(f"Середній час виконання: {settings.AVERAGE_TASK_TIME}с")
-    print(f"{'='*70}\n")
 
     print("Запуск Queue Processor...")
     queue_thread = Thread(target=queue_processor, daemon=True)
@@ -375,7 +375,7 @@ if __name__ == '__main__':
     print("\nРобота запущена\n")
     
     try:
-        server = HTTPServer(('0.0.0.0', PORT), SmartLoadBalancerHandler)
+        server = HTTPServer(('0.0.0.0', PORT), LoadBalancer)
         server.serve_forever()
     except KeyboardInterrupt:
         print("\n\nLoad Balancer зупинено!")

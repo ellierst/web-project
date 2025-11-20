@@ -46,7 +46,7 @@ class TaskSerializer(serializers.ModelSerializer):
 class TaskCreateSerializer(serializers.Serializer):
     number = serializers.IntegerField(min_value=0, max_value=settings.MAX_FIBONACCI_NUMBER)
     
-    def validate_number(self, value):
+    def validate_tasks(self, value):
         user = self.context['request'].user
         active_tasks = Task.objects.filter(
             user=user,

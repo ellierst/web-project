@@ -4,7 +4,6 @@
         let token = localStorage.getItem('token');
         let currentTab = 'all';
         let autoRefreshInterval = null;
-        let serverStatuses = {};
         let taskCreationCooldown = false;
         const TASK_COOLDOWN_SECONDS = 5;
 
@@ -41,8 +40,6 @@
                     MessageBox.textContent = 'Реєстрація успішна! Тепер увійдіть.';
                     MessageBox.classList.remove('hidden');
                     MessageBox.classList.add('success');
-                    MessageBox.style.background = '#e7f3ff';
-                    MessageBox.style.color = '#0c5460';
                 } else {
                     const data = await response.json();
                     let messages = [];
@@ -118,25 +115,6 @@
             document.getElementById('currentUser').textContent = localStorage.getItem('username');
         }
 
-        async function loadServerStatuses() {
-            const servers = ['http://127.0.0.1:8001', 'http://127.0.0.1:8002'];
-            
-            for (const server of servers) {
-                try {
-                    const response = await fetch(`${server}/api/server-status/`);
-                    if (response.ok) {
-                        const data = await response.json();
-                        serverStatuses[server] = data;
-                    }
-                } catch (error) {
-                    console.log(`Server ${server} unavailable`);
-                }
-            }
-        }
-
-        const DEFAULT_MAX_TASKS_PER_SERVER = 2;
-        const DEFAULT_AVERAGE_TASK_TIME = 300;
-
         async function createTask() {
             const number = parseInt(document.getElementById('fibNumber').value);
             const MessageBox = document.getElementById('taskMessage');
@@ -174,9 +152,6 @@
                 const data = await response.json();
 
                 if (response.status === 202) {
-                    document.getElementById('fibNumber').value = '';
-                    loadTasks();
-                } else if (response.ok || response.status === 201) {
                     document.getElementById('fibNumber').value = '';
                     loadTasks();
                 } else {
@@ -225,8 +200,6 @@
             }
 
             try {
-                await loadServerStatuses();
-                
                 const response = await fetch(url, {
                     headers: {'Authorization': `Bearer ${token}`}
                 });
@@ -280,64 +253,28 @@
             }
 
             container.innerHTML = tasks.map(task => {
-                let status = task.status;
-                const queuePosition = task.queue_position;
+                const status = task.status;
+                const statusClass = status;
+                const displayStatus = status;
 
-                const inLocalQueue = !!queuePosition && status !== 'in_progress' && status !== 'completed' && status !== 'failed' && status !== 'cancelled';
-                
-                const displayStatus = inLocalQueue ? 'awaiting_dispatch' : status;
-                const statusClass = displayStatus;
-
-                let estimatedTime = task.estimated_wait_time;
-                if ((!estimatedTime || estimatedTime === 'undefined') && queuePosition) {
-                    const numServers = Object.keys(serverStatuses).length || 2;
-                    const reportedMax = Object.values(serverStatuses).map(s => s.max_tasks || DEFAULT_MAX_TASKS_PER_SERVER);
-                    const maxPerServer = reportedMax.length ? Math.max(...reportedMax) : DEFAULT_MAX_TASKS_PER_SERVER;
-                    const avgTime = DEFAULT_AVERAGE_TASK_TIME;
-
-                    const estimatedSeconds = (queuePosition / (numServers * maxPerServer)) * avgTime;
-                    if (estimatedSeconds < 60) {
-                        estimatedTime = `${Math.round(estimatedSeconds)} секунд`;
-                    } else if (estimatedSeconds < 3600) {
-                        estimatedTime = `${Math.round(estimatedSeconds / 60)} хвилин`;
-                    } else {
-                        const hours = Math.floor(estimatedSeconds / 3600);
-                        const minutes = Math.floor((estimatedSeconds % 3600) / 60);
-                        estimatedTime = `${hours} год ${minutes} хв`;
-                    }
-                }
-                
                 return `
                 <div class="task-card ${statusClass}">
                     <div class="task-header">
                         <div>
                             <span class="task-title">Task #${task.id} - Fibonacci(${task.number})</span>
-                            ${task.server_url ? `<span class="server-info">🔡 ${task.server_url}</span>` : ''}
+                            ${task.server_url ? `<span class="server-info">${task.server_url}</span>` : ''}
                         </div>
                         <div>
                             <span class="status-badge status-${statusClass}">${getStatusText(displayStatus)}</span>
-                            ${(displayStatus === 'awaiting_dispatch' || displayStatus === 'in_progress') ? 
-                                `<button class="btn-danger" onclick="cancelTask(${task.id})"> Скасувати</button>` : ''}
+
+                            ${displayStatus === 'in_progress' ? 
+                                `<button class="btn-danger" onclick="cancelTask(${task.id})">Скасувати</button>` 
+                                : ''
+                            }
                         </div>
                     </div>
 
-                    ${(displayStatus === 'awaiting_dispatch') && queuePosition ? `
-                        <div class="queue-info">
-                            <strong>Черга</strong>
-                            <div class="queue-details">
-                                <div class="queue-item">
-                                    <div class="queue-item-label">Позиція в черзі:</div>
-                                    <div class="queue-item-value">${queuePosition}</div>
-                                </div>
-                                <div class="queue-item">
-                                    <div class="queue-item-label">Очікуваний час:</div>
-                                    <div class="queue-item-value">${estimatedTime}</div>
-                                </div>
-                            </div>
-                        </div>
-                    ` : ''}
-
-                    ${(displayStatus === 'in_progress') ? `
+                    ${displayStatus === 'in_progress' ? `
                         <div class="progress-bar">
                             <div class="progress-fill" style="width: ${task.progress}%">
                                 ${task.progress}%
@@ -347,20 +284,20 @@
 
                     ${task.result ? `
                         <div class="result-box">
-                            <strong> Результат:</strong><br>
+                            <strong>Результат:</strong><br>
                             ${task.result}
                         </div>
                     ` : ''}
 
                     ${task.error_message ? `
                         <div class="error-message">
-                            <strong> Помилка:</strong><br>
+                            <strong>Помилка:</strong><br>
                             ${task.error_message}
                         </div>
                     ` : ''}
 
                     <div class="task-info">
-                          Створено: ${new Date(task.created_at).toLocaleString('uk-UA')}<br>
+                        Створено: ${new Date(task.created_at).toLocaleString('uk-UA')}<br>
                         ${task.completed_at ? `Завершено: ${new Date(task.completed_at).toLocaleString('uk-UA')}` : ''}
                     </div>
                 </div>
@@ -385,16 +322,15 @@
             }
         }
 
-        function showTab(tab) {
+        function showTab(tab, buttonElement) {
             currentTab = tab;
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            el.classList.add('active');
+            buttonElement.classList.add('active');
             loadTasks();
         }
 
         function getStatusText(status) {
             const statuses = {
-                'awaiting_dispatch': 'Очікує на відправку',
                 'in_progress': 'Виконується',
                 'completed': 'Завершено',
                 'failed': 'Помилка',
