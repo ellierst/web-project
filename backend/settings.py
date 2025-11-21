@@ -4,7 +4,7 @@ from datetime import timedelta
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = 'django-insecure-dev-key-change-in-production'
+SECRET_KEY = 'django-insecure-%g@pmd^0=&3xt^-p00(*%&ra5cbvft6x&t*2xwy+5$*6=ti(te'
 DEBUG = True
 ALLOWED_HOSTS = ['*']
 
@@ -15,6 +15,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
@@ -38,7 +39,7 @@ ROOT_URLCONF = 'backend.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [os.path.join(BASE_DIR.parent, 'frontend')],
+        'DIRS': [BASE_DIR / "frontend"],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -72,8 +73,11 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 LANGUAGE_CODE = 'en-us'
+
 TIME_ZONE = 'UTC'
+
 USE_I18N = True
+
 USE_TZ = True
 
 STATIC_URL = 'static/'
@@ -93,11 +97,15 @@ SIMPLE_JWT = {
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
 }
 
+STATICFILES_DIRS = [
+    BASE_DIR / "frontend",
+]
+
 CORS_ALLOW_ALL_ORIGINS = True
 
-MAX_ATTEMPTS = 3
 BACKGROUND_TASK_RUN_ASYNC = True
-MAX_FIBONACCI_NUMBER = 1000000
-MAX_TASKS_PER_USER = 6
+MAX_RUN_TIME = 3600
+MAX_FIBONACCI_NUMBER = 100000
+MAX_TASKS_PER_USER = 8
 MAX_TASKS_PER_SERVER = 2
 AVERAGE_TASK_TIME = 300

@@ -6,19 +6,18 @@ from django.conf import settings
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'username', 'email']
+        fields = ['id', 'username']
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=6)
     
     class Meta:
         model = User
-        fields = ['username', 'email', 'password']
+        fields = ['username', 'password']
     
     def create(self, validated_data):
         user = User.objects.create_user(
             username=validated_data['username'],
-            email=validated_data.get('email', ''),
             password=validated_data['password']
         )
         return user
@@ -28,12 +27,11 @@ class TaskSerializer(serializers.ModelSerializer):
         model = Task
         fields = [
             'id', 'number', 'status', 'progress', 'result', 
-            'error_message', 'server_url', 'created_at', 
-            'started_at', 'completed_at'
+            'error_message', 'server_url', 'created_at', 'completed_at'
         ]
         read_only_fields = [
             'id', 'status', 'progress', 'result', 'error_message',
-            'server_url', 'created_at', 'started_at', 'completed_at'
+            'server_url', 'created_at', 'completed_at'
         ]
     
     def validate_number(self, value):
@@ -59,5 +57,5 @@ class TaskCreateSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 f"Maximum active tasks ({settings.MAX_TASKS_PER_USER}) reached"
             )
-        
+
         return value

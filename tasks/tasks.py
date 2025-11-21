@@ -10,11 +10,9 @@ CANCELLATION_CHECKS = 100
 
 @background(schedule=0)
 def calculate_fibonacci_task(task_id, n):
-    """Background task для обчислення чисел Фібоначчі"""
     try:
         task = Task.objects.get(id=task_id)
         
-        # ПОЧАТОК: статус in_progress
         task.status = 'in_progress'
         task.progress = 0
         task.save()
@@ -33,14 +31,11 @@ def calculate_fibonacci_task(task_id, n):
                 
                 time.sleep(0.1)
 
-                # Update progress
                 if i % progress_interval == 0:
                     progress = int((i / n) * 100)
                     task.refresh_from_db()
                     
-                    # Check if cancelled
                     if task.status == 'cancelled':
-                        # ВАЖЛИВО: Зберігаємо фінальний стан скасованої задачі
                         task.progress = progress
                         task.completed_at = timezone.now()
                         task.save()
@@ -49,27 +44,22 @@ def calculate_fibonacci_task(task_id, n):
                     
                     task.progress = min(progress, 99)
                     task.save(update_fields=['progress'])
-                    sys.stdout.flush()
                 
-                # Periodic cancellation check
                 if i % cancel_check_interval == 0:
                     task.refresh_from_db()
                     if task.status == 'cancelled':
-                        # ВАЖЛИВО: Зберігаємо фінальний стан скасованої задачі
                         progress = int((i / n) * 100)
                         task.progress = progress
                         task.completed_at = timezone.now()
                         task.save()
-                        print(f"\n🚫 TASK #{task_id} CANCELLED at {progress}%")
+                        print(f"\nTASK #{task_id} CANCELLED at {progress}%")
                         return
             
             result = str(b)
             
-            # Format large numbers
             if len(result) > 10:
                 result = f"{result[0]}.{result[1:10]}E+{len(result) - 1}"
         
-        # Save result
         task.refresh_from_db()
         if task.status != 'cancelled':
             task.result = result
@@ -80,7 +70,6 @@ def calculate_fibonacci_task(task_id, n):
         else:    
             task.completed_at = timezone.now()
             task.save()
-            print(f"\n🚫 TASK #{task_id} WAS CANCELLED BEFORE SAVING RESULT")
         
     except Task.DoesNotExist:
         pass

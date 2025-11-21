@@ -1,0 +1,344 @@
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+        
+        .header h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .auth-section, .main-section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #333;
+        }
+        
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border 0.3s;
+        }
+        
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s;
+            font-weight: bold;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            margin-left: 10px;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            padding: 8px 15px;
+            font-size: 14px;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .task-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-left: 5px solid #667eea;
+        }
+        
+        .task-card.completed {
+            border-left-color: #28a745;
+        }
+        
+        .task-card.failed {
+            border-left-color: #dc3545;
+        }
+        
+        .task-card.in_progress {
+            border-left-color: #ffc107;
+        }
+        
+        .task-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .task-title {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .status-badge {
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+            color: white;
+        }
+        
+        .status-waiting {
+            background: #6c757d;
+        }
+        
+        .status-queued {
+            background: #17a2b8;
+        }
+        
+        .status-in_progress {
+            background: #ffc107;
+        }
+        
+        .status-completed {
+            background: #28a745;
+        }
+        
+        .status-failed {
+            background: #dc3545;
+        }
+        
+        .status-cancelled {
+            background: #6c757d;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 25px;
+            background: #e0e0e0;
+            border-radius: 12px;
+            overflow: hidden;
+            margin: 15px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            transition: width 0.5s ease-out;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .task-info {
+            color: #666;
+            font-size: 0.9em;
+            margin-top: 10px;
+        }
+        
+        .result-box {
+            background: #e7f3ff;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            word-break: break-all;
+            font-family: monospace;
+        }
+        
+        .error-message {
+            background: #ffe7e7;
+            color: #dc3545;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+        
+        .queue-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            border-left: 4px solid #17a2b8;
+        }
+        
+        .queue-info strong {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 1.1em;
+        }
+        
+        .queue-details {
+            display: flex;
+            gap: 20px;
+            margin-top: 10px;
+        }
+        
+        .queue-item {
+            flex: 1;
+        }
+        
+        .queue-item-label {
+            font-size: 0.85em;
+            opacity: 0.8;
+            margin-bottom: 4px;
+        }
+        
+        .queue-item-value {
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .tab {
+            padding: 10px 20px;
+            background: #e0e0e0;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        .tab.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .info-text {
+            color: #666;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+        
+        .server-info {
+            display: inline-block;
+            background: #e7f3ff;
+            padding: 3px 10px;
+            border-radius: 5px;
+            font-size: 0.85em;
+            margin-left: 10px;
+        }
+
+        .estimated-time-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+
+        .estimated-time-box .time-icon {
+            font-size: 1.2em;
+            margin-right: 8px;
+        }
+
+        .estimated-time-box .time-value {
+            font-weight: bold;
+            color: #856404;
+        }
+
+        .sticky-queue-banner {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: bold;
+        }
+
+        .queue-banner-content {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .queue-banner-icon {
+            font-size: 1.5em;
+        }
+
+        .queue-banner-text {
+            font-size: 1.1em;
+        }
+
+        .queue-banner-count {
+            background: rgba(255,255,255,0.3);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 1.3em;
+            font-weight: bold;
+        }
+
+        .success {
+            color: #0c5960;
+            margin-bottom: 20px;
+        }
+
+        .error {
+            color: #dc3545;
+            margin-bottom: 20px;
+        }

@@ -6,24 +6,18 @@ class TasksConfig(AppConfig):
     name = 'tasks'
 
     def ready(self):
-        """
-        Виконується один раз при запуску Django
-        """
         from django.utils import timezone
         from .models import Task
         import sys
-        
-        # Перевіряємо чи це не міграція або інша команда
-        if 'runserver' in sys.argv or 'waitress-serve' in ' '.join(sys.argv) or 'gunicorn' in sys.argv[0]:
 
-            print('\nCLEANUP AT STARTUP\n')
+        if 'runserver' in sys.argv or 'waitress-serve' in ' '.join(sys.argv) or 'gunicorn' in sys.argv[0]:
             
             try:
                 stuck_tasks = Task.objects.filter(status='in_progress')
                 count = stuck_tasks.count()
 
                 if count > 0:
-                    print(f'TASKS: Знайдено {count} завислих задач')
+                    print(f'Знайдено {count} завислих задач')
 
                     stuck_tasks.update(
                         status='failed',
@@ -31,21 +25,14 @@ class TasksConfig(AppConfig):
                     )
                     
                     print(f'Оновлено {count} задач → status=failed')
-                    
-                    for task in stuck_tasks:
-                        print(f'   Task #{task.id}: Fibonacci({task.number}) user={task.user.username}')
                 else:
-                    print('TASKS: Завислих задач не знайдено')
+                    print('Завислих задач не знайдено')
 
                 try:
                     from background_task.models import Task as BackgroundTask, CompletedTask
 
                     in_progress__count = BackgroundTask.objects.count()
                     completed_count = CompletedTask.objects.count()
-
-                    print(f'   BACKGROUND_TASK:')
-                    print(f'   Progress: {in_progress__count}')
-                    print(f'   Completed: {completed_count}')
 
                     if in_progress__count > 0:
                         BackgroundTask.objects.all().delete()

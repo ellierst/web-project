@@ -18,7 +18,6 @@ class Task(models.Model):
     server_url = models.CharField(max_length=255, null=True, blank=True)
     
     created_at = models.DateTimeField(auto_now_add=True)
-    started_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
     
     class Meta:

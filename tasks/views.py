@@ -6,20 +6,6 @@ from .models import Task
 from .serializers import TaskSerializer, TaskCreateSerializer, UserRegistrationSerializer
 from .tasks import calculate_fibonacci_task
 from rest_framework.decorators import api_view, permission_classes
-from django.db.models import Q
-import os
-import sys
-
-project_root = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(project_root, 'backend'))
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'backend.settings')
-
-try:
-    import django
-    django.setup()
-except Exception as _e:
-
-    print(f"Django setup warning: {_e}")
 
 from django.conf import settings
 
@@ -87,7 +73,7 @@ class TaskViewSet(viewsets.ModelViewSet):
     def cancel(self, request, pk=None):
         task = self.get_object()
         
-        if task.status not in ['pending', 'in_progress']:
+        if task.status not in ['in_progress']:
             return Response(
                 {'error': 'Task cannot be cancelled'},
                 status=status.HTTP_400_BAD_REQUEST
@@ -114,7 +100,6 @@ def server_status(request):
     server_port = request.META.get('SERVER_PORT', 'unknown')
     server_url = f"http://127.0.0.1:{server_port}"
 
-    # Рахуємо тільки задачі НА ЦЬОМУ СЕРВЕРІ
     in_progress_count = Task.objects.filter(
         status='in_progress',
         server_url=server_url
