@@ -9,7 +9,6 @@ import time
 from datetime import datetime
 import traceback
 
-#коментар
 #коментар для тесту роботи правил друга частина
 project_root = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(project_root, 'backend'))
