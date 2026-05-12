@@ -9,6 +9,7 @@ import time
 from datetime import datetime
 import traceback
 
+#коментар для тесту роботи правил
 project_root = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(project_root, 'backend'))
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'backend.settings')
